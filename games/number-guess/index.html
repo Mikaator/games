@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zahlenschätzer - Spielesammlung</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="game-header">
+            <h1>Zahlenschätzer</h1>
+            <button class="btn btn-back" onclick="window.location.href='../../index.html'">Zurück zur Übersicht</button>
+        </div>
+
+        <div class="game-container">
+            <div class="game-settings">
+                <h2>Einstellungen</h2>
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label for="twitch-channel">Twitch-Kanal:</label>
+                        <input type="text" id="twitch-channel" placeholder="z.B. streamer123">
+                    </div>
+                    <div class="setting-item">
+                        <label for="min-number">Minimale Zahl:</label>
+                        <input type="number" id="min-number" value="1" min="1">
+                    </div>
+                    <div class="setting-item">
+                        <label for="max-number">Maximale Zahl:</label>
+                        <input type="number" id="max-number" value="100" min="2">
+                    </div>
+                    <div class="setting-item">
+                        <label for="cooldown">Cooldown pro Benutzer (Sekunden):</label>
+                        <input type="number" id="cooldown" value="30" min="0">
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button id="connect-btn" class="btn">Mit Twitch verbinden</button>
+                    <button id="start-game-btn" class="btn" disabled>Neues Spiel starten</button>
+                    <button id="download-config-btn" class="btn">Konfiguration herunterladen</button>
+                    <button id="upload-config-btn" class="btn">Konfiguration hochladen</button>
+                </div>
+            </div>
+
+            <div class="game-status">
+                <div id="game-message" class="game-message">
+                    Verbinde dich mit einem Twitch-Kanal, um zu spielen.
+                </div>
+                <div id="current-status" class="current-status"></div>
+            </div>
+
+            <div class="highscore-section">
+                <h2>Highscores</h2>
+                <table id="highscore-table" class="highscore-table">
+                    <thead>
+                        <tr>
+                            <th>Platz</th>
+                            <th>Name</th>
+                            <th>Versuche</th>
+                            <th>Zeit</th>
+                        </tr>
+                    </thead>
+                    <tbody id="highscore-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="twitch-integration">
+            <h2>Twitch-Chat</h2>
+            <div id="twitch-container" class="twitch-container"></div>
+            <div class="twitch-input">
+                <input type="text" id="manual-command" placeholder="z.B. !guess 42">
+                <button id="send-command" class="btn">Senden</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../js/main.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
