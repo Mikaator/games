@@ -24,21 +24,17 @@ class TwitchChat {
         }
 
         return new Promise((resolve, reject) => {
-            // TMI.js laden, falls noch nicht vorhanden
-            if (!window.tmi) {
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/index.min.js';
-                script.onload = () => {
+            try {
+                // TMI.js ist bereits durch Skript-Tag in HTML geladen
+                if (typeof tmi !== 'undefined') {
                     this._initClient()
                         .then(resolve)
                         .catch(reject);
-                };
-                script.onerror = () => reject(new Error('Fehler beim Laden von TMI.js'));
-                document.head.appendChild(script);
-            } else {
-                this._initClient()
-                    .then(resolve)
-                    .catch(reject);
+                } else {
+                    reject(new Error('TMI.js wurde nicht gefunden. Bitte stelle sicher, dass es korrekt in der HTML-Datei eingebunden ist.'));
+                }
+            } catch (error) {
+                reject(error);
             }
         });
     }
@@ -52,7 +48,12 @@ class TwitchChat {
     _initClient() {
         return new Promise((resolve, reject) => {
             try {
-                this.client = new window.tmi.Client({
+                // Auf globales tmi.js-Objekt zugreifen
+                if (typeof tmi === 'undefined') {
+                    throw new Error('TMI.js ist nicht verfügbar.');
+                }
+                
+                this.client = new tmi.Client({
                     connection: {
                         reconnect: true,
                         secure: true
