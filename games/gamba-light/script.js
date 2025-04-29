@@ -252,26 +252,8 @@ class GambaLightGame {
         this.setGameMessage('Verbindung zu Twitch wird hergestellt...', 'info');
         this.connectButton.disabled = true;
         
-        // Alternative Methode: Twitch Chat über TMI.js CDN (Client-only)
-        // TMI.js von CDN laden, falls noch nicht vorhanden
-        if (typeof tmi === 'undefined') {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/index.min.js';
-            script.onload = () => this.initTwitchClient(channel);
-            script.onerror = () => {
-                this.setGameMessage('Fehler beim Laden der Twitch-Bibliothek.', 'error');
-                this.connectButton.disabled = false;
-            };
-            document.head.appendChild(script);
-        } else {
-            this.initTwitchClient(channel);
-        }
-    }
-    
-    // TMI.js Client initialisieren
-    initTwitchClient(channel) {
         try {
-            // Anonymer Client ohne Auth-Token
+            // Direkt einen anonymen Client erstellen, ohne die TwitchChat-Klasse zu nutzen
             const client = new tmi.Client({
                 connection: {
                     secure: true,
@@ -286,7 +268,6 @@ class GambaLightGame {
                 this.spinWheelButton.disabled = false;
                 
                 // Chat-Container für Nachrichtenanzeige einstellen
-                this.twitchChat.setChatClient(client); // Methode anpassen
                 this.twitchChat.setChatContainer(this.twitchContainer);
                 
                 // Auf Chat-Nachrichten hören
@@ -408,21 +389,44 @@ class GambaLightGame {
         this.spinWheelButton.disabled = true;
         this.setGameMessage('Rad dreht sich...', 'info');
         
+        // Sound-Effekt (wenn verfügbar)
+        try {
+            const spinSound = new Audio('sound/wheel-spin.mp3');
+            spinSound.play().catch(e => console.log('Audio konnte nicht abgespielt werden:', e));
+        } catch (e) {
+            console.log('Audio nicht verfügbar');
+        }
+        
         // Zufälliges Ergebnis auswählen
         const randomIndex = Utils.randomInt(0, this.segments.length - 1);
         const result = this.segments[randomIndex];
         
-        // Animation starten
-        const rotations = 5; // Anzahl der vollen Drehungen
+        // Verbesserte Animation starten
+        const rotations = 8; // Mehr Drehungen für dramatischen Effekt
         const targetAngle = 360 * rotations + (randomIndex * (360 / this.segments.length));
         
-        this.wheelSegments.style.transition = 'transform 5s cubic-bezier(0.2, 0.8, 0.2, 1)';
+        // Rad-Container-Klasse für zusätzliche Animationen
+        this.rouletteWheel.classList.add('wheel-spinning');
+        
+        // Beschleunigung und Verlangsamung für realistischeres Gefühl
+        this.wheelSegments.style.transition = 'transform 8s cubic-bezier(0.2, 0.1, 0.1, 1)';
         this.wheelSegments.style.transform = `rotate(-${targetAngle}deg)`;
+        
+        // Kamera-Shake hinzufügen, wenn das Rad langsamer wird
+        setTimeout(() => {
+            this.rouletteWheel.classList.add('camera-shake');
+            
+            // Shake-Effekt nach kurzer Zeit entfernen
+            setTimeout(() => {
+                this.rouletteWheel.classList.remove('camera-shake');
+            }, 800);
+        }, 6500);
         
         // Warten, bis die Animation beendet ist
         setTimeout(() => {
+            this.rouletteWheel.classList.remove('wheel-spinning');
             this.processResult(result);
-        }, 5000);
+        }, 8000);
     }
     
     // Ergebnis verarbeiten
@@ -710,29 +714,60 @@ class GambaLightGame {
         document.body.appendChild(confettiContainer);
         
         const colors = ['#9146FF', '#FAD000', '#FF6B6B', '#32CD32', '#00BFFF', '#FF69B4'];
+        const shapes = ['square', 'circle', 'triangle', 'rect'];
         
-        for (let i = 0; i < 100; i++) {
+        // Mehr Konfetti-Teilchen für einen besseren Effekt
+        for (let i = 0; i < 150; i++) {
             setTimeout(() => {
                 const confetti = document.createElement('div');
                 confetti.className = 'confetti';
+                
+                // Zufällige Position
                 confetti.style.left = Math.random() * 100 + 'vw';
-                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.width = Math.random() * 10 + 5 + 'px';
-                confetti.style.height = Math.random() * 10 + 5 + 'px';
+                
+                // Zufällige Farbe
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.backgroundColor = color;
+                
+                // Zufällige Größe
+                const size = Math.random() * 10 + 5;
+                confetti.style.width = size + 'px';
+                confetti.style.height = size + 'px';
+                
+                // Zufällige Rotation
                 confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                
+                // Zufällige Form
+                const shape = shapes[Math.floor(Math.random() * shapes.length)];
+                if (shape === 'circle') {
+                    confetti.style.borderRadius = '50%';
+                } else if (shape === 'triangle') {
+                    confetti.style.width = '0';
+                    confetti.style.height = '0';
+                    confetti.style.borderLeft = `${size/2}px solid transparent`;
+                    confetti.style.borderRight = `${size/2}px solid transparent`;
+                    confetti.style.borderBottom = `${size}px solid ${color}`;
+                    confetti.style.backgroundColor = 'transparent';
+                }
+                
+                // Zufällige Fallgeschwindigkeit und Schwankung
+                const fallDuration = Math.random() * 2 + 3;
+                const swayAmount = Math.random() * 30 + 10;
+                confetti.style.animation = `confetti-fall ${fallDuration}s ease-in-out forwards, confetti-sway ${fallDuration/2}s ease-in-out infinite alternate`;
+                confetti.style.animationDelay = `0s, ${Math.random()}s`;
                 
                 confettiContainer.appendChild(confetti);
                 
                 setTimeout(() => {
                     confetti.remove();
-                }, 3000);
+                }, fallDuration * 1000);
                 
-                if (i === 99) {
+                if (i === 149) {
                     setTimeout(() => {
                         confettiContainer.remove();
-                    }, 3200);
+                    }, fallDuration * 1000 + 200);
                 }
-            }, i * 20);
+            }, i * 15); // Schnellere Erzeugung für dichteren Konfetti-Effekt
         }
     }
     
@@ -766,15 +801,15 @@ class GambaLightGame {
                     opacity: 0.8;
                 }
                 25% {
-                    transform: translateY(25vh) rotate(90deg) translateX(10px);
+                    transform: translateY(25vh) rotate(90deg);
                     opacity: 1;
                 }
                 50% {
-                    transform: translateY(50vh) rotate(180deg) translateX(-15px);
+                    transform: translateY(50vh) rotate(180deg);
                     opacity: 0.8;
                 }
                 75% {
-                    transform: translateY(75vh) rotate(270deg) translateX(15px);
+                    transform: translateY(75vh) rotate(270deg);
                     opacity: 0.6;
                 }
                 100% {
@@ -783,15 +818,40 @@ class GambaLightGame {
                 }
             }
             
+            @keyframes confetti-sway {
+                0% { 
+                    transform: translateX(-15px); 
+                }
+                100% { 
+                    transform: translateX(15px); 
+                }
+            }
+            
             .camera-shake {
-                animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+                animation: shake 0.8s cubic-bezier(.36,.07,.19,.97) both;
+                transform-origin: center center;
             }
             
             @keyframes shake {
-                10%, 90% { transform: translate3d(-1px, 0, 0); }
-                20%, 80% { transform: translate3d(2px, 0, 0); }
-                30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
-                40%, 60% { transform: translate3d(3px, 0, 0); }
+                10%, 90% { transform: translate3d(-2px, -1px, 0) rotate(0.5deg); }
+                20%, 80% { transform: translate3d(3px, 2px, 0) rotate(-0.5deg); }
+                30%, 50%, 70% { transform: translate3d(-5px, -2px, 0) rotate(1deg); }
+                40%, 60% { transform: translate3d(5px, 3px, 0) rotate(-1deg); }
+            }
+            
+            #roulette-wheel {
+                transition: transform 0.2s ease-out;
+            }
+            
+            .wheel-spinning {
+                animation: wheel-blur 8s ease-in-out;
+            }
+            
+            @keyframes wheel-blur {
+                0% { filter: blur(0px); }
+                20% { filter: blur(2px); }
+                80% { filter: blur(1px); }
+                100% { filter: blur(0px); }
             }
         `;
         document.head.appendChild(style);
