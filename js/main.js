@@ -42,6 +42,12 @@ class TwitchChat {
             }
         });
     }
+    
+    // Chat-Client direkt setzen (für alternative Verbindungsmethode)
+    setChatClient(client) {
+        this.client = client;
+        this.connected = true;
+    }
 
     _initClient() {
         return new Promise((resolve, reject) => {
@@ -60,7 +66,7 @@ class TwitchChat {
                     });
 
                     if (this.chatContainer) {
-                        this.addMessageToContainer(tags.username, message);
+                        this.addMessageToContainer(tags.username, message, tags.color);
                     }
                 });
 
@@ -138,7 +144,7 @@ class TwitchChat {
     }
 
     // Nachricht zum Chat-Container hinzufügen
-    addMessageToContainer(username, message) {
+    addMessageToContainer(username, message, color) {
         if (!this.chatContainer) return;
 
         const messageElement = document.createElement('div');
@@ -147,6 +153,9 @@ class TwitchChat {
         const usernameSpan = document.createElement('span');
         usernameSpan.className = 'chat-username';
         usernameSpan.textContent = username + ': ';
+        if (color) {
+            usernameSpan.style.color = color;
+        }
         
         const messageSpan = document.createElement('span');
         messageSpan.className = 'chat-text';

@@ -39,6 +39,18 @@ class GambaLightGame {
         
         // Roulette-Rad initialisieren
         this.initRouletteWheel();
+        
+        // Konfetti-Animation bei Gewinnen
+        this.createConfetti = this.createConfetti.bind(this);
+        
+        // Verbesserte Spin-Animation
+        this.spinWheel = this.spinWheel.bind(this);
+        
+        // Füge diese Styling-Regeln für Konfetti dynamisch hinzu
+        this.addDynamicStyles = this.addDynamicStyles.bind(this);
+        
+        // Initialisiere alle Komponenten
+        this.initGame = this.initGame.bind(this);
     }
     
     // DOM-Elemente referenzieren
@@ -240,29 +252,85 @@ class GambaLightGame {
         this.setGameMessage('Verbindung zu Twitch wird hergestellt...', 'info');
         this.connectButton.disabled = true;
         
-        // Versuche, zum Twitch-Chat zu verbinden
-        this.twitchChat.connect(channel)
-            .then(() => {
-                this.setGameMessage('Erfolgreich mit Twitch verbunden!', 'success');
+        // Alternative Methode: Twitch Chat über TMI.js CDN (Client-only)
+        // TMI.js von CDN laden, falls noch nicht vorhanden
+        if (typeof tmi === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/index.min.js';
+            script.onload = () => this.initTwitchClient(channel);
+            script.onerror = () => {
+                this.setGameMessage('Fehler beim Laden der Twitch-Bibliothek.', 'error');
+                this.connectButton.disabled = false;
+            };
+            document.head.appendChild(script);
+        } else {
+            this.initTwitchClient(channel);
+        }
+    }
+    
+    // TMI.js Client initialisieren
+    initTwitchClient(channel) {
+        try {
+            // Anonymer Client ohne Auth-Token
+            const client = new tmi.Client({
+                connection: {
+                    secure: true,
+                    reconnect: true
+                },
+                channels: [channel]
+            });
+            
+            client.connect().then(() => {
+                this.setGameMessage(`Erfolgreich mit Twitch-Kanal ${channel} verbunden!`, 'success');
                 this.connectButton.textContent = 'Verbunden';
                 this.spinWheelButton.disabled = false;
                 
                 // Chat-Container für Nachrichtenanzeige einstellen
+                this.twitchChat.setChatClient(client); // Methode anpassen
                 this.twitchChat.setChatContainer(this.twitchContainer);
                 
                 // Auf Chat-Nachrichten hören
-                this.twitchChat.onMessage((username, message) => {
+                client.on('message', (channel, tags, message, self) => {
+                    const username = tags['display-name'] || tags.username;
                     this.handleChatMessage(username, message);
+                    
+                    // Nachricht im Chat-Container anzeigen
+                    if (this.twitchChat.chatContainer) {
+                        const messageElement = document.createElement('div');
+                        messageElement.className = 'chat-message';
+                        
+                        const usernameSpan = document.createElement('span');
+                        usernameSpan.className = 'chat-username';
+                        usernameSpan.textContent = username + ': ';
+                        usernameSpan.style.color = tags.color || '#9146FF';
+                        
+                        const messageSpan = document.createElement('span');
+                        messageSpan.className = 'chat-text';
+                        messageSpan.textContent = message;
+                        
+                        messageElement.appendChild(usernameSpan);
+                        messageElement.appendChild(messageSpan);
+                        
+                        this.twitchChat.chatContainer.appendChild(messageElement);
+                        this.twitchChat.chatContainer.scrollTop = this.twitchChat.chatContainer.scrollHeight;
+                    }
                 });
                 
                 // Einstellungen speichern
                 this.saveSettings();
-            })
-            .catch(error => {
-                console.error('Twitch-Verbindungsfehler:', error);
+            }).catch(err => {
+                console.error('Twitch-Verbindungsfehler:', err);
                 this.setGameMessage('Fehler bei der Verbindung zum Twitch-Chat. Bitte überprüfe den Kanalnamen.', 'error');
                 this.connectButton.disabled = false;
             });
+            
+            // Client in twitchChat speichern
+            this.twitchChat.client = client;
+        } catch (error) {
+            console.error('Twitch-Client-Fehler:', error);
+            this.setGameMessage('Fehler bei der Initialisierung des Twitch-Clients.', 'error');
+            this.connectButton.disabled = false;
+        }
     }
     
     // Chat-Nachricht verarbeiten
@@ -433,6 +501,9 @@ class GambaLightGame {
         
         // Wetten zurücksetzen für die nächste Runde
         this.currentBets = [];
+        
+        // Konfetti-Animation bei Gewinnen
+        this.createConfetti();
     }
     
     // Historie aktualisieren
@@ -631,9 +702,109 @@ class GambaLightGame {
         // Eingabefeld leeren
         this.manualCommandInput.value = '';
     }
+    
+    // Konfetti-Animation bei Gewinnen
+    createConfetti() {
+        const confettiContainer = document.createElement('div');
+        confettiContainer.className = 'confetti-container';
+        document.body.appendChild(confettiContainer);
+        
+        const colors = ['#9146FF', '#FAD000', '#FF6B6B', '#32CD32', '#00BFFF', '#FF69B4'];
+        
+        for (let i = 0; i < 100; i++) {
+            setTimeout(() => {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.width = Math.random() * 10 + 5 + 'px';
+                confetti.style.height = Math.random() * 10 + 5 + 'px';
+                confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                
+                confettiContainer.appendChild(confetti);
+                
+                setTimeout(() => {
+                    confetti.remove();
+                }, 3000);
+                
+                if (i === 99) {
+                    setTimeout(() => {
+                        confettiContainer.remove();
+                    }, 3200);
+                }
+            }, i * 20);
+        }
+    }
+    
+    // Füge diese Styling-Regeln für Konfetti dynamisch hinzu
+    addDynamicStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            .confetti-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                z-index: 1000;
+                overflow: hidden;
+            }
+            
+            .confetti {
+                position: absolute;
+                top: -20px;
+                width: 10px;
+                height: 10px;
+                opacity: 0.8;
+                animation: confetti-fall 3s ease-in-out forwards;
+            }
+            
+            @keyframes confetti-fall {
+                0% {
+                    transform: translateY(0) rotate(0deg);
+                    opacity: 0.8;
+                }
+                25% {
+                    transform: translateY(25vh) rotate(90deg) translateX(10px);
+                    opacity: 1;
+                }
+                50% {
+                    transform: translateY(50vh) rotate(180deg) translateX(-15px);
+                    opacity: 0.8;
+                }
+                75% {
+                    transform: translateY(75vh) rotate(270deg) translateX(15px);
+                    opacity: 0.6;
+                }
+                100% {
+                    transform: translateY(100vh) rotate(360deg);
+                    opacity: 0;
+                }
+            }
+            
+            .camera-shake {
+                animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            }
+            
+            @keyframes shake {
+                10%, 90% { transform: translate3d(-1px, 0, 0); }
+                20%, 80% { transform: translate3d(2px, 0, 0); }
+                30%, 50%, 70% { transform: translate3d(-3px, 0, 0); }
+                40%, 60% { transform: translate3d(3px, 0, 0); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Initialisiere alle Komponenten
+    initGame() {
+        this.addDynamicStyles();
+    }
 }
 
 // Spiel initialisieren, wenn das Dokument geladen ist
 document.addEventListener('DOMContentLoaded', () => {
     const game = new GambaLightGame();
+    game.initGame();
 }); 
