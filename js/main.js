@@ -2,15 +2,14 @@
  * Gemeinsame Funktionen für alle Spiele
  */
 
-// Twitch Chat Integration
+// Twitch Chat Integration über chat.is
 class TwitchChat {
     constructor(channel) {
         this.channel = channel || 'default';
-        this.client = null;
-        this.messageCallbacks = [];
         this.connected = false;
         this.chatContainer = null;
-        this.reconnectInterval = null;
+        this.iframe = null;
+        this.messageCallbacks = [];
     }
 
     // Verbindung zum Twitch Chat herstellen
@@ -19,108 +18,128 @@ class TwitchChat {
             this.channel = channel;
         }
 
-        if (this.client) {
+        if (this.iframe) {
             this.disconnect();
         }
 
         return new Promise((resolve, reject) => {
             try {
-                // TMI.js ist bereits durch Skript-Tag in HTML geladen
-                if (typeof tmi !== 'undefined') {
-                    this._initClient()
-                        .then(resolve)
-                        .catch(reject);
-                } else {
-                    reject(new Error('TMI.js wurde nicht gefunden. Bitte stelle sicher, dass es korrekt in der HTML-Datei eingebunden ist.'));
+                // Chat.is iframe erstellen
+                this.iframe = document.createElement('iframe');
+                this.iframe.style.width = '100%';
+                this.iframe.style.height = '100%';
+                this.iframe.style.border = 'none';
+                this.iframe.style.background = 'transparent';
+                
+                // URL für chat.is mit dem Kanalnamen
+                this.iframe.src = `https://chatis.is2511.com/v2/?channel=${this.channel}&animate=true&bots=true&size=1&font=11&show_homies=true&shadow=1`;
+                
+                // Event-Listener für die Nachricht, dass der Chat geladen wurde
+                this.iframe.onload = () => {
+                    console.log(`Chat.is für Kanal ${this.channel} geladen`);
+                    this.connected = true;
+                    this.displaySystemMessage(`Verbunden mit Twitch-Chat: ${this.channel}`);
+                    // Speichere den Kanalnamen global für alle Spiele
+                    this.saveChannelGlobal(this.channel);
+                    
+                    // Starte Beobachtung des iframes für neue Nachrichten
+                    this._startChatObserver();
+                    
+                    resolve();
+                };
+                
+                this.iframe.onerror = (error) => {
+                    console.error('Fehler beim Laden des Chat.is-Frames:', error);
+                    reject(error);
+                };
+                
+                // Wenn ein Container gesetzt wurde, füge den iFrame dort ein
+                if (this.chatContainer) {
+                    // Container leeren
+                    while (this.chatContainer.firstChild) {
+                        this.chatContainer.removeChild(this.chatContainer.firstChild);
+                    }
+                    this.chatContainer.appendChild(this.iframe);
                 }
+                
             } catch (error) {
+                console.error('Fehler bei der Chat-Initialisierung:', error);
                 reject(error);
             }
         });
     }
     
-    // Chat-Client direkt setzen (für alternative Verbindungsmethode)
-    setChatClient(client) {
-        this.client = client;
-        this.connected = true;
-    }
-
-    _initClient() {
-        return new Promise((resolve, reject) => {
+    // Starte Beobachtung des Chats für neue Nachrichten
+    _startChatObserver() {
+        // Regelmäßig nach neuen Nachrichten suchen
+        this.chatObserverInterval = setInterval(() => {
             try {
-                // Auf globales tmi.js-Objekt zugreifen
-                if (typeof tmi === 'undefined') {
-                    throw new Error('TMI.js ist nicht verfügbar.');
+                // Zugriff auf den iframe-Inhalt
+                if (!this.iframe || !this.iframe.contentWindow || !this.iframe.contentDocument) {
+                    return; // Iframe nicht verfügbar oder nicht zugänglich
                 }
                 
-                this.client = new tmi.Client({
-                    connection: {
-                        reconnect: true,
-                        secure: true
-                    },
-                    channels: [this.channel]
-                });
-
-                this.client.on('message', (channel, tags, message, self) => {
+                // Chat-Container im iframe finden
+                const chatContainer = this.iframe.contentDocument.querySelector('#chat_container');
+                if (!chatContainer) return;
+                
+                // Alle Nachrichtenelemente finden
+                const messageElements = chatContainer.querySelectorAll('.chat_line');
+                
+                // Die letzten 5 Nachrichten prüfen (um Überflutung zu vermeiden)
+                const maxMessagesToCheck = 5;
+                const messagesToCheck = Array.from(messageElements).slice(-maxMessagesToCheck);
+                
+                for (const messageElement of messagesToCheck) {
+                    // Prüfen, ob wir diese Nachricht bereits verarbeitet haben
+                    if (messageElement.dataset.processed === 'true') continue;
+                    
+                    // Als verarbeitet markieren
+                    messageElement.dataset.processed = 'true';
+                    
+                    // Benutzernamen extrahieren
+                    const userInfo = messageElement.querySelector('.user_info');
+                    if (!userInfo) continue;
+                    
+                    const nick = userInfo.querySelector('.nick');
+                    if (!nick) continue;
+                    
+                    const username = nick.textContent;
+                    
+                    // Nachrichteninhalt extrahieren
+                    const messageContent = messageElement.querySelector('.message');
+                    if (!messageContent) continue;
+                    
+                    const message = messageContent.textContent;
+                    
+                    // Farbe des Benutzernamens extrahieren (falls verfügbar)
+                    const color = nick.style.color || '';
+                    
+                    // An alle Callbacks weiterleiten
                     this.messageCallbacks.forEach(callback => {
-                        callback(tags.username, message, tags);
+                        callback(username, message, { color });
                     });
-
-                    if (this.chatContainer) {
-                        this.addMessageToContainer(tags.username, message, tags.color);
-                    }
-                });
-
-                this.client.on('connected', () => {
-                    console.log(`Verbunden mit Kanal: ${this.channel}`);
-                    this.connected = true;
-                    this.displaySystemMessage(`Verbunden mit Twitch-Chat: ${this.channel}`);
-                    resolve();
-                });
-
-                this.client.on('disconnected', () => {
-                    console.log('Verbindung getrennt');
-                    this.connected = false;
-                    this.displaySystemMessage('Twitch-Chat getrennt. Versuche erneut zu verbinden...');
-                    this._autoReconnect();
-                });
-
-                this.client.connect().catch(error => {
-                    console.error('Verbindungsfehler:', error);
-                    this.connected = false;
-                    this.displaySystemMessage('Fehler bei der Verbindung zum Twitch-Chat');
-                    reject(error);
-                });
+                }
             } catch (error) {
-                console.error('Fehler bei der Client-Initialisierung:', error);
-                reject(error);
+                console.error('Fehler beim Beobachten des Chats:', error);
             }
-        });
+        }, 1000); // Alle Sekunde prüfen
     }
-
-    _autoReconnect() {
-        if (this.reconnectInterval) return;
-        
-        this.reconnectInterval = setInterval(() => {
-            if (!this.connected) {
-                this.client.connect().catch(error => {
-                    console.error('Reconnect-Fehler:', error);
-                });
-            } else {
-                clearInterval(this.reconnectInterval);
-                this.reconnectInterval = null;
-            }
-        }, 5000);
-    }
-
+    
     disconnect() {
-        if (this.client && this.connected) {
-            this.client.disconnect();
-            this.connected = false;
-            if (this.reconnectInterval) {
-                clearInterval(this.reconnectInterval);
-                this.reconnectInterval = null;
+        if (this.iframe && this.connected) {
+            // Chat-Beobachter stoppen
+            if (this.chatObserverInterval) {
+                clearInterval(this.chatObserverInterval);
+                this.chatObserverInterval = null;
             }
+            
+            if (this.iframe.parentNode) {
+                this.iframe.parentNode.removeChild(this.iframe);
+            }
+            this.iframe = null;
+            this.connected = false;
+            this.displaySystemMessage('Twitch-Chat getrennt.');
         }
     }
 
@@ -142,34 +161,17 @@ class TwitchChat {
     // Chat-Container für die Anzeige von Nachrichten einrichten
     setChatContainer(element) {
         this.chatContainer = element;
-    }
-
-    // Nachricht zum Chat-Container hinzufügen
-    addMessageToContainer(username, message, color) {
-        if (!this.chatContainer) return;
-
-        const messageElement = document.createElement('div');
-        messageElement.className = 'chat-message';
-        
-        const usernameSpan = document.createElement('span');
-        usernameSpan.className = 'chat-username';
-        usernameSpan.textContent = username + ': ';
-        if (color) {
-            usernameSpan.style.color = color;
+        // Wenn bereits verbunden, füge den iframe gleich hinzu
+        if (this.connected && this.iframe) {
+            // Container leeren
+            while (this.chatContainer.firstChild) {
+                this.chatContainer.removeChild(this.chatContainer.firstChild);
+            }
+            this.chatContainer.appendChild(this.iframe);
         }
-        
-        const messageSpan = document.createElement('span');
-        messageSpan.className = 'chat-text';
-        messageSpan.textContent = message;
-        
-        messageElement.appendChild(usernameSpan);
-        messageElement.appendChild(messageSpan);
-        
-        this.chatContainer.appendChild(messageElement);
-        this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
     }
 
-    // Systemnachricht zum Chat-Container hinzufügen
+    // Systemnachricht anzeigen (direkt im Container neben dem iframe)
     displaySystemMessage(message) {
         if (!this.chatContainer) return;
 
@@ -177,8 +179,51 @@ class TwitchChat {
         messageElement.className = 'chat-message system-message';
         messageElement.textContent = message;
         
-        this.chatContainer.appendChild(messageElement);
-        this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+        // Füge die Systemnachricht vor dem iframe ein, wenn vorhanden
+        if (this.iframe && this.iframe.parentNode === this.chatContainer) {
+            this.chatContainer.insertBefore(messageElement, this.iframe);
+        } else {
+            this.chatContainer.appendChild(messageElement);
+        }
+        
+        // Nach 5 Sekunden automatisch entfernen
+        setTimeout(() => {
+            if (messageElement.parentNode) {
+                messageElement.parentNode.removeChild(messageElement);
+            }
+        }, 5000);
+    }
+    
+    // Hilfsmethode, um die chat.is URL zu erzeugen
+    getChatIsUrl(channel) {
+        return `https://chatis.is2511.com/v2/?channel=${channel}&animate=true&bots=true&size=1&font=11&show_homies=true&shadow=1`;
+    }
+    
+    // Methode zum Ändern des Kanals
+    changeChannel(channel) {
+        if (channel && channel !== this.channel) {
+            this.channel = channel;
+            if (this.connected && this.iframe) {
+                this.iframe.src = this.getChatIsUrl(this.channel);
+                this.displaySystemMessage(`Kanal gewechselt zu: ${this.channel}`);
+                // Speichere den Kanalnamen global für alle Spiele
+                this.saveChannelGlobal(this.channel);
+            } else {
+                this.connect(channel);
+            }
+        }
+    }
+    
+    // Speichere den Kanalnamen global, damit alle Spiele darauf zugreifen können
+    saveChannelGlobal(channel) {
+        if (channel) {
+            localStorage.setItem('global_twitch_channel', channel);
+        }
+    }
+    
+    // Lade den global gespeicherten Kanalnamen
+    static getGlobalChannel() {
+        return localStorage.getItem('global_twitch_channel') || '';
     }
 }
 

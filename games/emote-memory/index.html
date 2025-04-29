@@ -14,6 +14,18 @@
             <button class="btn btn-back" onclick="window.location.href='../../index.html'">Zurück zur Übersicht</button>
         </div>
         
+        <div class="twitch-settings">
+            <h3>Twitch-Chat Einstellungen</h3>
+            <div class="settings-form">
+                <div class="form-group">
+                    <label for="twitch-channel">Twitch-Kanalname:</label>
+                    <input type="text" id="twitch-channel" placeholder="Kanalnamen eingeben">
+                </div>
+                <button id="connect-chat" class="btn">Chat verbinden</button>
+            </div>
+            <div id="chat-container" class="chat-container"></div>
+        </div>
+        
         <div class="game-container">
             <div class="game-settings">
                 <h2>Einstellungen</h2>
@@ -24,10 +36,6 @@
                         <small>Finde die ID in der URL von 7TV (z.B. https://7tv.app/emote-sets/63c73a79f7497abd0fb5b387)</small>
                     </div>
                     <div class="setting-item">
-                        <label for="twitch-channel">Twitch-Kanal:</label>
-                        <input type="text" id="twitch-channel" placeholder="z.B. streamer123">
-                    </div>
-                    <div class="setting-item">
                         <label for="max-players">Maximale Spieleranzahl:</label>
                         <input type="number" id="max-players" value="10" min="1" max="50">
                     </div>
@@ -36,14 +44,13 @@
                         <select id="board-size">
                             <option value="4x4">4x4 (8 Paare)</option>
                             <option value="6x4">6x4 (12 Paare)</option>
-                            <option value="6x6">6x6 (18 Paare)</option>
+                            <option value="6x6" selected>6x6 (18 Paare)</option>
                             <option value="8x6">8x6 (24 Paare)</option>
                         </select>
                     </div>
                 </div>
                 <div class="button-group">
                     <button id="load-emotes-btn" class="btn">Emotes laden</button>
-                    <button id="connect-btn" class="btn">Mit Twitch verbinden</button>
                     <button id="start-game-btn" class="btn" disabled>Neues Spiel starten</button>
                     <button id="download-config-btn" class="btn">Konfiguration herunterladen</button>
                     <button id="upload-config-btn" class="btn">Konfiguration hochladen</button>
@@ -99,5 +106,84 @@
     
     <script src="../../js/main.js"></script>
     <script src="script.js"></script>
+    <script>
+        // Twitch-Chat Verbindung einrichten
+        document.addEventListener('DOMContentLoaded', function() {
+            const channelInput = document.getElementById('twitch-channel');
+            const connectButton = document.getElementById('connect-chat');
+            const chatContainer = document.getElementById('chat-container');
+            const startGameButton = document.getElementById('start-game-btn');
+            const gameMessage = document.getElementById('game-message');
+            
+            // Globale Variable für den Zugriff aus der Spielklasse
+            window.twitchChatInstance = null;
+            
+            // Twitch-Chat-Instanz erstellen
+            const twitchChat = new TwitchChat();
+            twitchChat.setChatContainer(chatContainer);
+            window.twitchChatInstance = twitchChat;
+            
+            // Gespeicherten Kanalnamen laden
+            const savedChannel = TwitchChat.getGlobalChannel();
+            if (savedChannel) {
+                channelInput.value = savedChannel;
+            }
+            
+            // Connect-Button-Handler
+            connectButton.addEventListener('click', function() {
+                const channelName = channelInput.value.trim();
+                if (channelName) {
+                    gameMessage.textContent = 'Verbindung wird hergestellt...';
+                    connectButton.disabled = true;
+                    
+                    // Mit Chat verbinden
+                    if (twitchChat.connected) {
+                        twitchChat.changeChannel(channelName);
+                        gameMessage.textContent = 'Verbunden mit Twitch-Chat! Starte ein neues Spiel.';
+                        startGameButton.disabled = false;
+                        connectButton.textContent = 'Verbunden';
+                    } else {
+                        twitchChat.connect(channelName)
+                            .then(() => {
+                                gameMessage.textContent = 'Verbunden mit Twitch-Chat! Starte ein neues Spiel.';
+                                startGameButton.disabled = false;
+                                connectButton.textContent = 'Verbunden';
+                                
+                                // Auf Chat-Nachrichten hören (für die Spielklasse)
+                                if (window.gameInstance) {
+                                    twitchChat.onMessage((username, message, tags) => {
+                                        window.gameInstance.handleChatMessage(username, message, tags);
+                                    });
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Twitch-Verbindungsfehler:', error);
+                                gameMessage.textContent = 'Fehler bei der Verbindung zum Twitch-Chat. Bitte überprüfe den Kanalnamen.';
+                                connectButton.disabled = false;
+                            });
+                    }
+                } else {
+                    alert('Bitte gib einen Kanalnamen ein');
+                }
+            });
+            
+            // Automatisch verbinden, wenn ein gespeicherter Kanalname existiert
+            if (savedChannel) {
+                twitchChat.connect(savedChannel)
+                    .then(() => {
+                        gameMessage.textContent = 'Verbunden mit Twitch-Chat! Starte ein neues Spiel.';
+                        startGameButton.disabled = false;
+                        connectButton.textContent = 'Verbunden';
+                        
+                        // Auf Chat-Nachrichten hören (für die Spielklasse)
+                        if (window.gameInstance) {
+                            twitchChat.onMessage((username, message, tags) => {
+                                window.gameInstance.handleChatMessage(username, message, tags);
+                            });
+                        }
+                    });
+            }
+        });
+    </script>
 </body>
 </html> 

@@ -4,7 +4,7 @@
 
 class EmoteMemoryGame {
     constructor() {
-        // Spiel-Einstellungen
+        // Spiel-Grundeinstellungen
         this.emoteSetId = '';
         this.maxPlayers = 10;
         this.boardSize = '6x4'; // Standard 6x4
@@ -28,8 +28,8 @@ class EmoteMemoryGame {
         // Elemente im DOM referenzieren
         this.initDOMElements();
         
-        // Twitch-Chat initialisieren
-        this.twitchChat = new TwitchChat();
+        // Twitch-Chat verwenden (global verfügbar gemacht)
+        this.twitchChat = window.twitchChatInstance;
         
         // Storage für Spielstand und Konfiguration
         this.storage = new GameStorage('emote-memory');
@@ -39,19 +39,20 @@ class EmoteMemoryGame {
         
         // Gespeicherte Daten laden (wenn vorhanden)
         this.loadSavedData();
+        
+        // Globale Instanz für den Zugriff auf Callbacks
+        window.gameInstance = this;
     }
     
     // DOM-Elemente referenzieren
     initDOMElements() {
         // Einstellungsfelder
         this.emoteSetIdInput = document.getElementById('emote-set-id');
-        this.channelInput = document.getElementById('twitch-channel');
         this.maxPlayersInput = document.getElementById('max-players');
         this.boardSizeSelect = document.getElementById('board-size');
         
         // Buttons
         this.loadEmotesButton = document.getElementById('load-emotes-btn');
-        this.connectButton = document.getElementById('connect-btn');
         this.startGameButton = document.getElementById('start-game-btn');
         this.downloadConfigButton = document.getElementById('download-config-btn');
         this.uploadConfigButton = document.getElementById('upload-config-btn');
@@ -73,9 +74,6 @@ class EmoteMemoryGame {
     initEventListeners() {
         // Emotes laden
         this.loadEmotesButton.addEventListener('click', () => this.loadEmotes());
-        
-        // Twitch-Verbindung
-        this.connectButton.addEventListener('click', () => this.connectToTwitch());
         
         // Spielstart
         this.startGameButton.addEventListener('click', () => this.startNewGame());
@@ -105,7 +103,6 @@ class EmoteMemoryGame {
             // Einstellungen wiederherstellen
             if (savedData.settings) {
                 if (savedData.settings.emoteSetId) this.emoteSetIdInput.value = savedData.settings.emoteSetId;
-                if (savedData.settings.channel) this.channelInput.value = savedData.settings.channel;
                 if (savedData.settings.maxPlayers) this.maxPlayersInput.value = savedData.settings.maxPlayers;
                 if (savedData.settings.boardSize) this.boardSizeSelect.value = savedData.settings.boardSize;
             }
@@ -124,7 +121,6 @@ class EmoteMemoryGame {
         const settingsData = {
             settings: {
                 emoteSetId: this.emoteSetIdInput.value.trim(),
-                channel: this.channelInput.value.trim(),
                 maxPlayers: parseInt(this.maxPlayersInput.value),
                 boardSize: this.boardSizeSelect.value
             },
@@ -183,42 +179,6 @@ class EmoteMemoryGame {
             });
     }
     
-    // Mit Twitch verbinden
-    connectToTwitch() {
-        const channel = this.channelInput.value.trim();
-        
-        if (!channel) {
-            this.setGameMessage('Bitte gib einen Twitch-Kanalnamen ein.', 'error');
-            return;
-        }
-        
-        this.setGameMessage('Verbindung zu Twitch wird hergestellt...', 'info');
-        this.connectButton.disabled = true;
-        
-        // Versuche, zum Twitch-Chat zu verbinden
-        this.twitchChat.connect(channel)
-            .then(() => {
-                this.setGameMessage('Erfolgreich mit Twitch verbunden!', 'success');
-                this.connectButton.textContent = 'Verbunden';
-                
-                // Chat-Container für Nachrichtenanzeige einstellen
-                this.twitchChat.setChatContainer(this.twitchContainer);
-                
-                // Auf Chat-Nachrichten hören
-                this.twitchChat.onMessage((username, message) => {
-                    this.handleChatMessage(username, message);
-                });
-                
-                // Einstellungen speichern
-                this.saveSettings();
-            })
-            .catch(error => {
-                console.error('Twitch-Verbindungsfehler:', error);
-                this.setGameMessage('Fehler bei der Verbindung zum Twitch-Chat. Bitte überprüfe den Kanalnamen.', 'error');
-                this.connectButton.disabled = false;
-            });
-    }
-    
     // Neues Spiel starten
     startNewGame() {
         // Prüfen, ob genügend Emotes geladen sind
@@ -246,7 +206,7 @@ class EmoteMemoryGame {
         this.generateBoard();
         
         // Spielstart verkünden
-        const message = `Neues Memory-Spiel gestartet! Spieler können mit !play beitreten. Verwende !memory A1 um eine Karte aufzudecken.`;
+        const message = `Neues Memory-Spiel gestartet! Spieler können mit !join beitreten. Verwende !memory A1 um eine Karte aufzudecken.`;
         this.setGameMessage(message, 'info');
         this.updateCurrentStatus();
         
@@ -455,8 +415,8 @@ class EmoteMemoryGame {
     handleChatMessage(username, message) {
         if (!this.isGameActive) return;
         
-        // Auf !play-Kommando prüfen (zum Spiel beitreten)
-        if (message.match(/^!play$/i)) {
+        // Auf !join-Kommando prüfen (zum Spiel beitreten)
+        if (message.match(/^!join$/i)) {
             const success = this.addPlayer(username);
             if (success) {
                 this.twitchChat.displaySystemMessage(`${username} ist dem Spiel beigetreten!`);
@@ -678,7 +638,6 @@ class EmoteMemoryGame {
             if (data && data.settings) {
                 // Einstellungen aktualisieren
                 if (data.settings.emoteSetId) this.emoteSetIdInput.value = data.settings.emoteSetId;
-                if (data.settings.channel) this.channelInput.value = data.settings.channel;
                 if (data.settings.maxPlayers) this.maxPlayersInput.value = data.settings.maxPlayers;
                 if (data.settings.boardSize) this.boardSizeSelect.value = data.settings.boardSize;
                 

@@ -316,64 +316,81 @@ class GambaLightGame {
     
     // Chat-Nachricht verarbeiten
     handleChatMessage(username, message) {
+        // Auf !join-Kommando prüfen (für Kompatibilität mit anderen Spielen)
+        if (message.match(/^!join$/i)) {
+            if (!this.players[username]) {
+                this.players[username] = {
+                    balance: parseInt(this.startingBalanceInput.value),
+                    wins: 0,
+                    losses: 0
+                };
+                this.updatePlayerList();
+                this.twitchChat.displaySystemMessage(`${username} ist beigetreten mit einem Startguthaben von ${this.players[username].balance}!`);
+                this.saveSettings();
+            } else {
+                this.twitchChat.displaySystemMessage(`${username}, du bist bereits im Spiel mit einem Guthaben von ${this.players[username].balance}.`);
+            }
+            return;
+        }
+        
         // Auf !bet-Kommando prüfen
         const betMatch = message.match(/^!bet\s+(\d+)\s+(red|black|green)$/i);
-        if (!betMatch) return;
-        
-        // Wettbetrag und Farbe extrahieren
-        const amount = parseInt(betMatch[1]);
-        const color = betMatch[2].toLowerCase();
-        
-        // Spieler ggf. hinzufügen
-        if (!this.players[username]) {
-            this.players[username] = {
-                balance: this.startingBalance,
-                totalWon: 0,
-                totalLost: 0,
-                wins: 0,
-                losses: 0
-            };
+        if (betMatch) {
+            // Wettbetrag und Farbe extrahieren
+            const amount = parseInt(betMatch[1]);
+            const color = betMatch[2].toLowerCase();
+            
+            // Spieler ggf. hinzufügen
+            if (!this.players[username]) {
+                this.players[username] = {
+                    balance: this.startingBalance,
+                    totalWon: 0,
+                    totalLost: 0,
+                    wins: 0,
+                    losses: 0
+                };
+            }
+            
+            // Prüfen, ob während des Drehens (keine Wetten erlaubt)
+            if (this.isSpinning) {
+                this.twitchChat.displaySystemMessage(`${username}, Wetten sind während des Drehens nicht möglich.`);
+                return;
+            }
+            
+            // Prüfen, ob gültiger Einsatz
+            if (amount <= 0) {
+                this.twitchChat.displaySystemMessage(`${username}, bitte setze einen positiven Betrag.`);
+                return;
+            }
+            
+            // Prüfen, ob ausreichend Guthaben
+            if (amount > this.players[username].balance) {
+                this.twitchChat.displaySystemMessage(`${username}, du hast nicht genügend Guthaben (${this.players[username].balance}).`);
+                return;
+            }
+            
+            // Prüfen, ob gültige Farbe
+            if (!['red', 'black', 'green'].includes(color)) {
+                this.twitchChat.displaySystemMessage(`${username}, bitte wähle red, black oder green.`);
+                return;
+            }
+            
+            // Wette hinzufügen
+            this.currentBets.push({
+                username,
+                amount,
+                color
+            });
+            
+            // Guthaben reduzieren
+            this.players[username].balance -= amount;
+            
+            // Spielerliste aktualisieren
+            this.updatePlayerList();
+            
+            // Bestätigung anzeigen
+            this.twitchChat.displaySystemMessage(`${username} setzt ${amount} auf ${color}.`);
         }
-        
-        // Prüfen, ob während des Drehens (keine Wetten erlaubt)
-        if (this.isSpinning) {
-            this.twitchChat.displaySystemMessage(`${username}, Wetten sind während des Drehens nicht möglich.`);
-            return;
-        }
-        
-        // Prüfen, ob gültiger Einsatz
-        if (amount <= 0) {
-            this.twitchChat.displaySystemMessage(`${username}, bitte setze einen positiven Betrag.`);
-            return;
-        }
-        
-        // Prüfen, ob ausreichend Guthaben
-        if (amount > this.players[username].balance) {
-            this.twitchChat.displaySystemMessage(`${username}, du hast nicht genügend Guthaben (${this.players[username].balance}).`);
-            return;
-        }
-        
-        // Prüfen, ob gültige Farbe
-        if (!['red', 'black', 'green'].includes(color)) {
-            this.twitchChat.displaySystemMessage(`${username}, bitte wähle red, black oder green.`);
-            return;
-        }
-        
-        // Wette hinzufügen
-        this.currentBets.push({
-            username,
-            amount,
-            color
-        });
-        
-        // Guthaben reduzieren
-        this.players[username].balance -= amount;
-        
-        // Spielerliste aktualisieren
-        this.updatePlayerList();
-        
-        // Bestätigung anzeigen
-        this.twitchChat.displaySystemMessage(`${username} setzt ${amount} auf ${color}.`);
     }
     
     // Roulette-Rad drehen

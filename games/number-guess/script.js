@@ -24,8 +24,8 @@ class NumberGuessGame {
         // Elemente im DOM referenzieren
         this.initDOMElements();
         
-        // Twitch-Chat initialisieren
-        this.twitchChat = new TwitchChat();
+        // Twitch-Chat verwenden (global verfügbar gemacht)
+        this.twitchChat = window.twitchChatInstance;
         
         // Storage für Spielstand und Konfiguration
         this.storage = new GameStorage('number-guess');
@@ -35,18 +35,19 @@ class NumberGuessGame {
         
         // Gespeicherte Daten laden (wenn vorhanden)
         this.loadSavedData();
+        
+        // Globale Instanz für den Zugriff auf Callbacks
+        window.gameInstance = this;
     }
     
     // DOM-Elemente referenzieren
     initDOMElements() {
         // Einstellungsfelder
-        this.channelInput = document.getElementById('twitch-channel');
         this.minNumberInput = document.getElementById('min-number');
         this.maxNumberInput = document.getElementById('max-number');
         this.cooldownInput = document.getElementById('cooldown');
         
         // Buttons
-        this.connectButton = document.getElementById('connect-btn');
         this.startGameButton = document.getElementById('start-game-btn');
         this.downloadConfigButton = document.getElementById('download-config-btn');
         this.uploadConfigButton = document.getElementById('upload-config-btn');
@@ -56,15 +57,11 @@ class NumberGuessGame {
         this.gameMessage = document.getElementById('game-message');
         this.currentStatus = document.getElementById('current-status');
         this.highscoreTable = document.getElementById('highscore-body');
-        this.twitchContainer = document.getElementById('twitch-container');
         this.manualCommandInput = document.getElementById('manual-command');
     }
     
     // Event-Listener hinzufügen
     initEventListeners() {
-        // Twitch-Verbindung
-        this.connectButton.addEventListener('click', () => this.connectToTwitch());
-        
         // Spielstart
         this.startGameButton.addEventListener('click', () => this.startNewGame());
         
@@ -105,7 +102,6 @@ class NumberGuessGame {
                 if (savedData.settings.minNumber) this.minNumberInput.value = savedData.settings.minNumber;
                 if (savedData.settings.maxNumber) this.maxNumberInput.value = savedData.settings.maxNumber;
                 if (savedData.settings.cooldown) this.cooldownInput.value = savedData.settings.cooldown;
-                if (savedData.settings.channel) this.channelInput.value = savedData.settings.channel;
             }
             
             // Highscores wiederherstellen
@@ -122,50 +118,12 @@ class NumberGuessGame {
             settings: {
                 minNumber: parseInt(this.minNumberInput.value),
                 maxNumber: parseInt(this.maxNumberInput.value),
-                cooldown: parseInt(this.cooldownInput.value),
-                channel: this.channelInput.value
+                cooldown: parseInt(this.cooldownInput.value)
             },
             highscores: this.highscores
         };
         
         this.storage.save(settingsData);
-    }
-    
-    // Mit Twitch verbinden
-    connectToTwitch() {
-        const channel = this.channelInput.value.trim();
-        
-        if (!channel) {
-            this.setGameMessage('Bitte gib einen Twitch-Kanalnamen ein.', 'error');
-            return;
-        }
-        
-        this.setGameMessage('Verbindung zu Twitch wird hergestellt...', 'info');
-        this.connectButton.disabled = true;
-        
-        // Versuche, zum Twitch-Chat zu verbinden
-        this.twitchChat.connect(channel)
-            .then(() => {
-                this.setGameMessage('Erfolgreich mit Twitch verbunden! Du kannst nun ein Spiel starten.', 'success');
-                this.connectButton.textContent = 'Verbunden';
-                this.startGameButton.disabled = false;
-                
-                // Chat-Container für Nachrichtenanzeige einstellen
-                this.twitchChat.setChatContainer(this.twitchContainer);
-                
-                // Auf Chat-Nachrichten hören
-                this.twitchChat.onMessage((username, message) => {
-                    this.handleChatMessage(username, message);
-                });
-                
-                // Einstellungen speichern
-                this.saveSettings();
-            })
-            .catch(error => {
-                console.error('Twitch-Verbindungsfehler:', error);
-                this.setGameMessage('Fehler bei der Verbindung zum Twitch-Chat. Bitte überprüfe den Kanalnamen.', 'error');
-                this.connectButton.disabled = false;
-            });
     }
     
     // Neues Spiel starten
@@ -198,7 +156,13 @@ class NumberGuessGame {
         
         // Auf !guess Kommando prüfen
         const guessMatch = message.match(/^!guess\s+(\d+)$/i);
-        if (!guessMatch) return;
+        if (!guessMatch) {
+            // Prüfen auf !join für Kompatibilität mit anderen Spielen
+            if (message.match(/^!join$/i)) {
+                this.twitchChat.displaySystemMessage(`${username}, dieses Spiel benötigt keine Anmeldung. Verwende direkt !guess <Zahl> zum Raten.`);
+            }
+            return;
+        }
         
         const guessedNumber = parseInt(guessMatch[1]);
         
@@ -341,7 +305,6 @@ class NumberGuessGame {
                 if (data.settings.minNumber) this.minNumberInput.value = data.settings.minNumber;
                 if (data.settings.maxNumber) this.maxNumberInput.value = data.settings.maxNumber;
                 if (data.settings.cooldown) this.cooldownInput.value = data.settings.cooldown;
-                if (data.settings.channel) this.channelInput.value = data.settings.channel;
             }
             
             if (data && data.highscores) {

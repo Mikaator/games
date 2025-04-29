@@ -14,95 +14,164 @@
             <button class="btn btn-back" onclick="window.location.href='../../index.html'">Zurück zur Übersicht</button>
         </div>
         
+        <div class="twitch-settings">
+            <h3>Twitch-Chat Einstellungen</h3>
+            <div class="settings-form">
+                <div class="form-group">
+                    <label for="twitch-channel">Twitch-Kanalname:</label>
+                    <input type="text" id="twitch-channel" placeholder="Kanalnamen eingeben">
+                </div>
+                <button id="connect-chat" class="btn">Chat verbinden</button>
+            </div>
+            <div id="chat-container" class="chat-container"></div>
+        </div>
+        
         <div class="game-container">
             <div class="game-settings">
                 <h2>Einstellungen</h2>
                 <div class="settings-grid">
                     <div class="setting-item">
-                        <label for="twitch-channel">Twitch-Kanal:</label>
-                        <input type="text" id="twitch-channel" placeholder="z.B. streamer123">
+                        <label for="min-bet">Minimaler Einsatz:</label>
+                        <input type="number" id="min-bet" value="10" min="1">
+                    </div>
+                    <div class="setting-item">
+                        <label for="max-bet">Maximaler Einsatz:</label>
+                        <input type="number" id="max-bet" value="1000" min="10">
                     </div>
                     <div class="setting-item">
                         <label for="starting-balance">Startguthaben:</label>
                         <input type="number" id="starting-balance" value="1000" min="100">
                     </div>
                     <div class="setting-item">
-                        <label for="red-chance">Rote Quote (%):</label>
-                        <input type="number" id="red-chance" value="50" min="1" max="98">
-                    </div>
-                    <div class="setting-item">
-                        <label for="black-chance">Schwarze Quote (%):</label>
-                        <input type="number" id="black-chance" value="45" min="1" max="98">
-                    </div>
-                    <div class="setting-item">
-                        <label for="green-chance">Grüne Quote (%):</label>
-                        <input type="number" id="green-chance" value="5" min="1" max="98">
-                    </div>
-                    <div class="setting-item">
-                        <label for="red-multiplier">Roter Multiplikator:</label>
-                        <input type="number" id="red-multiplier" value="2" min="1.1" step="0.1">
-                    </div>
-                    <div class="setting-item">
-                        <label for="black-multiplier">Schwarzer Multiplikator:</label>
-                        <input type="number" id="black-multiplier" value="2" min="1.1" step="0.1">
-                    </div>
-                    <div class="setting-item">
-                        <label for="green-multiplier">Grüner Multiplikator:</label>
-                        <input type="number" id="green-multiplier" value="14" min="1.1" step="0.1">
+                        <label for="cooldown">Cooldown zwischen Wetten (Sekunden):</label>
+                        <input type="number" id="cooldown" value="5" min="0">
                     </div>
                 </div>
                 <div class="button-group">
-                    <button id="connect-btn" class="btn">Mit Twitch verbinden</button>
+                    <button id="start-game-btn" class="btn" disabled>Roulette starten</button>
                     <button id="download-config-btn" class="btn">Konfiguration herunterladen</button>
                     <button id="upload-config-btn" class="btn">Konfiguration hochladen</button>
                 </div>
             </div>
             
-            <div id="game-message" class="game-message">
-                Verbinde dich mit einem Twitch-Kanal, um zu spielen.
-            </div>
-            
-            <div class="roulette-container">
-                <div class="roulette-wheel-container">
-                    <div class="roulette-wheel" id="roulette-wheel">
-                        <div class="wheel-center"></div>
-                        <div id="wheel-segments" class="wheel-segments"></div>
-                        <div class="wheel-marker"></div>
-                    </div>
-                    <button id="spin-wheel-btn" class="btn spin-btn" disabled>Rad drehen</button>
+            <div class="roulette-section">
+                <div class="roulette-wheel" id="roulette-wheel">
+                    <div class="wheel-center"></div>
+                    <div class="wheel-segments" id="wheel-segments"></div>
                 </div>
-                
-                <div class="bet-history">
-                    <h3>Spielverlauf</h3>
-                    <div id="history-container" class="history-container"></div>
+                <div class="spin-button-container">
+                    <button id="spin-btn" class="btn spin-btn" disabled>Drehen</button>
                 </div>
             </div>
             
-            <div class="player-list">
-                <h2>Spieler</h2>
-                <div class="player-stats-header">
-                    <div class="player-stats-name">Name</div>
-                    <div class="player-stats-balance">Guthaben</div>
-                    <div class="player-stats-actions">Aktionen</div>
+            <div class="game-status">
+                <div id="game-message" class="game-message">
+                    Verbinde dich mit einem Twitch-Kanal, um zu spielen.
                 </div>
-                <div id="player-list" class="player-list-container"></div>
+                <div id="current-status" class="current-status"></div>
             </div>
-        </div>
-        
-        <div class="twitch-integration">
-            <h2>Twitch-Chat</h2>
-            <div id="twitch-container" class="twitch-container"></div>
-            <div class="twitch-input">
-                <input type="text" id="manual-command" placeholder="z.B. !bet 100 red">
-                <button id="send-command" class="btn">Senden</button>
+            
+            <div class="bet-history">
+                <h2>Wettverlauf</h2>
+                <div id="bet-history-container" class="bet-history-container"></div>
+            </div>
+            
+            <div class="leaderboard">
+                <h2>Rangliste</h2>
+                <table id="leaderboard-table" class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Platz</th>
+                            <th>Name</th>
+                            <th>Guthaben</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body"></tbody>
+                </table>
             </div>
         </div>
     </div>
     
-    <!-- TMI.js für Twitch Chat Integration -->
-    <script src="https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/index.min.js"></script>
-    
     <script src="../../js/main.js"></script>
     <script src="script.js"></script>
+    <script>
+        // Twitch-Chat Verbindung einrichten
+        document.addEventListener('DOMContentLoaded', function() {
+            const channelInput = document.getElementById('twitch-channel');
+            const connectButton = document.getElementById('connect-chat');
+            const chatContainer = document.getElementById('chat-container');
+            const startGameButton = document.getElementById('start-game-btn');
+            const gameMessage = document.getElementById('game-message');
+            
+            // Globale Variable für den Zugriff aus der Spielklasse
+            window.twitchChatInstance = null;
+            
+            // Twitch-Chat-Instanz erstellen
+            const twitchChat = new TwitchChat();
+            twitchChat.setChatContainer(chatContainer);
+            window.twitchChatInstance = twitchChat;
+            
+            // Gespeicherten Kanalnamen laden
+            const savedChannel = TwitchChat.getGlobalChannel();
+            if (savedChannel) {
+                channelInput.value = savedChannel;
+            }
+            
+            // Connect-Button-Handler
+            connectButton.addEventListener('click', function() {
+                const channelName = channelInput.value.trim();
+                if (channelName) {
+                    gameMessage.textContent = 'Verbindung wird hergestellt...';
+                    connectButton.disabled = true;
+                    
+                    // Mit Chat verbinden
+                    if (twitchChat.connected) {
+                        twitchChat.changeChannel(channelName);
+                        gameMessage.textContent = 'Verbunden mit Twitch-Chat! Starte ein neues Spiel.';
+                        startGameButton.disabled = false;
+                        connectButton.textContent = 'Verbunden';
+                    } else {
+                        twitchChat.connect(channelName)
+                            .then(() => {
+                                gameMessage.textContent = 'Verbunden mit Twitch-Chat! Starte ein neues Spiel.';
+                                startGameButton.disabled = false;
+                                connectButton.textContent = 'Verbunden';
+                                
+                                // Auf Chat-Nachrichten hören (für die Spielklasse)
+                                if (window.gameInstance) {
+                                    twitchChat.onMessage((username, message, tags) => {
+                                        window.gameInstance.handleChatMessage(username, message, tags);
+                                    });
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Twitch-Verbindungsfehler:', error);
+                                gameMessage.textContent = 'Fehler bei der Verbindung zum Twitch-Chat. Bitte überprüfe den Kanalnamen.';
+                                connectButton.disabled = false;
+                            });
+                    }
+                } else {
+                    alert('Bitte gib einen Kanalnamen ein');
+                }
+            });
+            
+            // Automatisch verbinden, wenn ein gespeicherter Kanalname existiert
+            if (savedChannel) {
+                twitchChat.connect(savedChannel)
+                    .then(() => {
+                        gameMessage.textContent = 'Verbunden mit Twitch-Chat! Starte ein neues Spiel.';
+                        startGameButton.disabled = false;
+                        connectButton.textContent = 'Verbunden';
+                        
+                        // Auf Chat-Nachrichten hören (für die Spielklasse)
+                        if (window.gameInstance) {
+                            twitchChat.onMessage((username, message, tags) => {
+                                window.gameInstance.handleChatMessage(username, message, tags);
+                            });
+                        }
+                    });
+            }
+        });
+    </script>
 </body>
 </html> 
